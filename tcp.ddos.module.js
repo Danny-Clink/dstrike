@@ -6,14 +6,15 @@ class TcpDDoSModule {
   #port = 0;
   #requestCount = 0;
 
-  constructor(host, port) {
+  constructor(host, port, ms) {
     this.client = new Socket();
+    this.ms = ms;
     this.#host = host;
     this.#port = port;
   }
 
   async init() {
-    setInterval(this._makeRequest.bind(this), 100);
+    setInterval(this._makeRequest.bind(this), this.ms);
   }
 
   _makeRequest() {

