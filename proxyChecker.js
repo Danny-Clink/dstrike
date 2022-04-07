@@ -8,6 +8,12 @@ class ProxyChecker {
     this._axiosResolveInterceptor();
   }
 
+  /**
+   * Entry point for getting proxies
+   * 
+   * @public
+   * @returns string[]
+   */
   async getProxies() {
     const [ socks4, socks5 ] = await Promise.all([
       this._getSocks4(),
@@ -20,6 +26,12 @@ class ProxyChecker {
     ];
   }
 
+  /**
+   * Getting socks4 proxy servers
+   * 
+   * @private
+   * @returns string[]
+   */
   async _getSocks4() {
     const proxyList = await this._getProxy("socks4");
     const requests = this._batchProxies(proxyList);
@@ -31,6 +43,12 @@ class ProxyChecker {
     return this._reduceProxy(responses);
   }
 
+  /**
+   * Getting socks5 proxy servers
+   * 
+   * @private
+   * @returns string[]
+   */
   async _getSocks5() {
     const proxyList = await this._getProxy("socks5");
     const requests = this._batchProxies(proxyList);
@@ -42,6 +60,12 @@ class ProxyChecker {
     return this._reduceProxy(responses);
   }
 
+  /**
+   * Getting http proxy servers
+   * 
+   * @private
+   * @returns string[]
+   */
   async _getHttp() {
     const proxyList = await this._getProxy("http");
     const requests = this._batchProxies(proxyList);
@@ -53,6 +77,12 @@ class ProxyChecker {
     return this._reduceProxy(responses);
   }
 
+  /**
+   * Getting https proxy servers
+   * 
+   * @private
+   * @returns string[]
+   */
   async _getHttps() {
     const proxyList = await this._getProxy("https");
     const requests = this._batchProxies(proxyList);
@@ -64,6 +94,12 @@ class ProxyChecker {
     return this._reduceProxy(responses);
   }
 
+  /**
+   * Getting proxy servers list
+   * 
+   * @private
+   * @returns string[]
+   */
   async _getProxy(type) {
     const proxies = await axios({
       url: `https://www.proxy-list.download/api/v1/get?type=${type}`,
@@ -74,11 +110,23 @@ class ProxyChecker {
       proxies.data.split(/\r\n/).map((endpoint) => ({ server: `${type}://${endpoint}`, type })) : []
   }
 
+  /**
+   * Handle error rejection interceptor
+   * 
+   * @private
+   * @returns void
+   */
   _axiosResolveInterceptor() {
     axios.interceptors.response
       .use((response) => response, (error) => Promise.resolve(error));
   }
 
+  /**
+   * Batching proxy servers requests
+   * 
+   * @private
+   * @returns Promise[]
+   */
   _batchProxies(proxyList) {
     return proxyList.map((endpoint) => {
       return axios({
@@ -92,6 +140,12 @@ class ProxyChecker {
     });
   }
 
+  /**
+   * Reduce proxy servers
+   * 
+   * @private
+   * @returns string[]
+   */
   _reduceProxy(responses) {
     return responses.reduce((available, response) => {
       const { status } = response;

