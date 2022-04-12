@@ -6,6 +6,7 @@
   "main": "app.js",
   "scripts": {
     "kill_the_russians": "node app.js",
+    "generate_targets": "node TargetsParser.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
