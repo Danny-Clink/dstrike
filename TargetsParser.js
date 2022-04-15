@@ -4,16 +4,17 @@ const { exec } = require("child_process");
 const messageContainer = require("./messageContainer");
 
 class TargetsParser {
-  #multiplePorts = new RegExp(/([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3} \(([0-9]{1,3}\/tcp, [0-9]{1,3}\/tcp)\))/, "g");
-  #onePort = new RegExp(/([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3} \(([0-9]{1,3}\/tcp))\)/, "g");
+  #hostPortPattern = new RegExp(/([0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3}.[0-9]{1,3} \(([0-9]{1,3}\/[a-z].*)\))/, "g");
 
   async generateTargets() {
-    const targetsMultiplePorts = this._handleTargets(this.#multiplePorts);
-    const targetsOnePort = this._handleTargets(this.#onePort);
+    const targets = this._handleTargets(this.#hostPortPattern);
+    const tcp = targets.filter((target) => target.type === "tcp");
+    const http = targets.filter((target) => target.type === "http");
+    const https = targets.filter((target) => target.type === "https");
 
     await fs.writeFileSync(
       "./targets.json",
-      JSON.stringify({ data: [...targetsMultiplePorts, ...targetsOnePort] }, null, 2)
+      JSON.stringify({ data: { tcp, http, https } }, null, 2)
     );
 
     exec(`git add targets.json"`, this._handleConsoleCommands.bind(this));
@@ -23,25 +24,25 @@ class TargetsParser {
 
   _handleTargets(regexp) {
     const targets = messageContainer.match(regexp);
-
+    console.log(targets);
     if(!targets) { return []; }
 
     return targets.reduce((result, target) => {
-        const [ host, ports ] = target.split(" (");
-        ports.split(", ").forEach((portType) => {
-          const [ port ] = portType.split("/");
+      const [ host, ports ] = target.split(" (");
+      ports.split(", ").forEach((portType) => {
+        const [ port, type ] = portType.split("/");
 
-          result.push({ host, port: Number(port) });
-        });
+        result.push({ host, port: Number(port), type: type.replace(")", "") });
+      });
 
-        return result; 
+      return result; 
     }, []);
   }
 
   _handleConsoleCommands(error, stdout, stderr) {
     if(error) { console.log(error); }
-    if(stdout) { console.log(); }
-    if(stderr) { console.log(); }
+    if(stdout) { console.log(stdout); }
+    if(stderr) { console.log(stderr); }
   }
 }
 
